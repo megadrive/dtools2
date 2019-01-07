@@ -1,0 +1,30 @@
+module.exports = {
+  "discord": {
+    "token": "",
+    "channel": {
+      "id": ""
+    },
+    "admins": {
+      "discordid": "friendly name"
+    }
+  },
+  "twitch": {
+    "clientid": "",
+    "oauth": ""
+  },
+  "twitter": {
+    "handles": ["twitterhandles"],
+    "consumer": {
+      "key": "",
+      "secret": ""
+    },
+    "access": {
+      "token": "",
+      "secret": ""
+    },
+    "webhook": "discord channel webhook url"
+  },
+  "streamUpdates": {
+    "webhook": "discord channel webhook url"
+  }
+}
