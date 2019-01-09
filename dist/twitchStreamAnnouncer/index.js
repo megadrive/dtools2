@@ -41,13 +41,13 @@ var logging_1 = require("../logging");
 var TwitchOnlineTracker_1 = require("TwitchOnlineTracker");
 var axios_1 = require("axios");
 var Keyv = require("keyv");
-var mappedUsers = new Keyv('sqlite://streamtracker.sqlite', {
-    namespace: 'streamtracker'
+var mappedUsers = new Keyv("sqlite://streamtracker.sqlite", {
+    namespace: "streamtracker"
 });
-mappedUsers.on('error', logging_1.Logger.error);
+mappedUsers.on("error", logging_1.Logger.error);
 var discord_js_1 = require("discord.js");
 var discord = new discord_js_1.Client();
-discord.login(Config.discord.token).catch(console.error);
+discord.login(Config.discord.token).catch(logging_1.Logger.error);
 var tracker = new TwitchOnlineTracker_1.TwitchOnlineTracker({
     client_id: Config.twitch.clientid,
     debug: true,
@@ -61,84 +61,112 @@ discord.on("ready", function () {
     tracker.start();
 });
 discord.on("error", logging_1.Logger.error);
-discord.on("message", function (message) {
-    if (message.author.bot)
-        return;
-    if (message.content.startsWith("!")) {
-        var args = message.content.slice(1).split(" ");
-        var twitch = args[1] ? args[1].toLowerCase() : null;
-        if (args[0] === "track" && twitch !== null) {
-            track(message, twitch);
+discord.on("message", function (message) { return __awaiter(_this, void 0, void 0, function () {
+    var args, twitch, e_1;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                if (message.author.bot)
+                    return [2 /*return*/];
+                if (!message.content.startsWith("!")) return [3 /*break*/, 7];
+                args = message.content.slice(1).split(" ");
+                twitch = args[1] ? args[1].toLowerCase() : null;
+                _a.label = 1;
+            case 1:
+                _a.trys.push([1, 6, , 7]);
+                if (!(args[0] === "track" && twitch !== null)) return [3 /*break*/, 3];
+                return [4 /*yield*/, track(message, twitch)];
+            case 2:
+                _a.sent();
+                _a.label = 3;
+            case 3:
+                if (!(args[0] === "untrack")) return [3 /*break*/, 5];
+                return [4 /*yield*/, untrack(message, twitch)];
+            case 4:
+                _a.sent();
+                _a.label = 5;
+            case 5: return [3 /*break*/, 7];
+            case 6:
+                e_1 = _a.sent();
+                logging_1.Logger.error(e_1);
+                return [3 /*break*/, 7];
+            case 7: return [2 /*return*/];
         }
-        if (args[0] === "untrack") {
-            untrack(message, twitch);
-        }
-    }
-});
+    });
+}); });
 function track(message, twitch) {
     return __awaiter(this, void 0, void 0, function () {
-        var mappedUser, e_1;
+        var mappedUser, simplifiedUser, e_2;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    _a.trys.push([0, 2, , 3]);
+                    _a.trys.push([0, 5, , 6]);
                     return [4 /*yield*/, mappedUsers.get(twitch)];
                 case 1:
                     mappedUser = _a.sent();
-                    if (mappedUser &&
-                        mappedUser.id === message.author.id) {
-                        mappedUsers.delete(twitch);
-                        tracker.untrack([twitch]);
-                    }
-                    mappedUsers.set(twitch, message.author);
+                    if (!(mappedUser && mappedUser.id === message.author.id)) return [3 /*break*/, 3];
+                    return [4 /*yield*/, mappedUsers.delete(twitch)];
+                case 2:
+                    _a.sent();
+                    tracker.untrack([twitch]);
+                    _a.label = 3;
+                case 3:
+                    simplifiedUser = new discord_js_1.User(discord, {
+                        id: message.author.id,
+                        tag: message.author.tag
+                    });
+                    return [4 /*yield*/, mappedUsers.set(twitch, simplifiedUser)];
+                case 4:
+                    _a.sent();
                     tracker.track([twitch]);
                     logging_1.Logger.log("[tracker] Tracking user " + message.author.tag + " at " + twitch);
-                    return [3 /*break*/, 3];
-                case 2:
-                    e_1 = _a.sent();
-                    logging_1.Logger.error(e_1);
-                    return [3 /*break*/, 3];
-                case 3: return [2 /*return*/];
+                    return [3 /*break*/, 6];
+                case 5:
+                    e_2 = _a.sent();
+                    logging_1.Logger.error(e_2);
+                    return [3 /*break*/, 6];
+                case 6: return [2 /*return*/];
             }
         });
     });
 }
 function untrack(message, twitch) {
     return __awaiter(this, void 0, void 0, function () {
-        var mappedUser, e_2;
+        var mappedUser, e_3;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
-                    _a.trys.push([0, 2, , 3]);
+                    _a.trys.push([0, 4, , 5]);
                     return [4 /*yield*/, mappedUsers.get(twitch)];
                 case 1:
                     mappedUser = _a.sent();
-                    if (mappedUser &&
-                        mappedUser.id === message.author.id) {
-                        mappedUsers.delete(twitch);
-                        tracker.untrack([twitch]);
-                    }
-                    logging_1.Logger.log("[tracker] Stop tracking user " + message.author.tag);
-                    return [3 /*break*/, 3];
+                    if (!(mappedUser && mappedUser.id === message.author.id)) return [3 /*break*/, 3];
+                    return [4 /*yield*/, mappedUsers.delete(twitch)];
                 case 2:
-                    e_2 = _a.sent();
-                    logging_1.Logger.error(e_2);
-                    return [3 /*break*/, 3];
-                case 3: return [2 /*return*/];
+                    _a.sent();
+                    tracker.untrack([twitch]);
+                    _a.label = 3;
+                case 3:
+                    logging_1.Logger.log("[tracker] Stop tracking user " + message.author.tag);
+                    return [3 /*break*/, 5];
+                case 4:
+                    e_3 = _a.sent();
+                    logging_1.Logger.error(e_3);
+                    return [3 /*break*/, 5];
+                case 5: return [2 /*return*/];
             }
         });
     });
 }
 tracker.on("live", function (stream) { return __awaiter(_this, void 0, void 0, function () {
-    var user, shout, e_3;
+    var user, shout, e_4;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
                 _a.trys.push([0, 2, , 3]);
-                return [4 /*yield*/, mappedUsers.get(stream.user_name)];
+                return [4 /*yield*/, mappedUsers.get(stream.user_name.toLowerCase())];
             case 1:
                 user = _a.sent();
-                console.log(user);
                 shout = stream.user_name + " just went live! " + stream.title + " at https://twitch.tv/" + stream.user_name + ".";
                 if (user) {
                     shout = formatAnnouncementText(user, stream);
@@ -146,15 +174,15 @@ tracker.on("live", function (stream) { return __awaiter(_this, void 0, void 0, f
                 announceLiveToChannel(shout);
                 return [3 /*break*/, 3];
             case 2:
-                e_3 = _a.sent();
-                logging_1.Logger.error(e_3);
+                e_4 = _a.sent();
+                logging_1.Logger.error(e_4);
                 return [3 /*break*/, 3];
             case 3: return [2 /*return*/];
         }
     });
 }); });
 function formatAnnouncementText(user, stream) {
-    return user + " just went live! " + stream.title + " at https://twitch.tv/" + stream.user_name + ".";
+    return "<@" + user.id + "> just went live! " + stream.title + " at https://twitch.tv/" + stream.user_name + ".";
 }
 /**
  * Announce that the Twitch channel is live to Discord.
@@ -162,7 +190,8 @@ function formatAnnouncementText(user, stream) {
  */
 function announceLiveToChannel(announcementText) {
     logging_1.Logger.log(announcementText);
-    axios_1.default.post(Config.streamUpdates.webhook, {
+    axios_1.default
+        .post(Config.streamUpdates.webhook, {
         content: announcementText
     })
         .catch(logging_1.Logger.error);
