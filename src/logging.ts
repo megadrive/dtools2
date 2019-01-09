@@ -8,7 +8,7 @@ const log = (...args) => doLog("log", ...args);
 const warn = (...args) => doLog("warn", ...args);
 const error = (...args) => doLog("error", ...args);
 
-export const Log = {
+export const Logger = {
   log,
   warn,
   error

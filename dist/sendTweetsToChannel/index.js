@@ -13,21 +13,22 @@ var T = new Twit({
     access_token: Config.twitter.access.token,
     access_token_secret: Config.twitter.access.secret
 });
-T.get('users/lookup', { screen_name: Config.twitter.handles.join(',') }, function (err, data) {
+T.get("users/lookup", { screen_name: Config.twitter.handles.join(",") }, function (err, data) {
     if (err)
         throw new Error(err);
-    logging_1.Log.log("gettings ids for " + Config.twitter.handles.join(', '));
+    logging_1.Logger.log("gettings ids for " + Config.twitter.handles.join(", "));
     var ids = data.map(function (curr) {
         return curr.id;
     });
-    logging_1.Log.log("got ids: " + ids);
-    var stream = T.stream('statuses/filter', { follow: ids.join(',') });
-    stream.on('tweet', function (tweet) {
+    logging_1.Logger.log("got ids: " + ids);
+    var stream = T.stream("statuses/filter", { follow: ids.join(",") });
+    stream.on("tweet", function (tweet) {
         if (!Config.twitter.handles.includes(tweet.user.screen_name.toLowerCase()))
             return;
         var tweetUrl = "https://twitter.com/" + tweet.user.screen_name + "/status/" + tweet.id_str;
-        logging_1.Log.log("got tweet -- @" + tweet.user.screen_name + ": " + tweet.text);
-        if (tweet.retweeted_status) { }
+        logging_1.Logger.log("got tweet -- @" + tweet.user.screen_name + ": " + tweet.text);
+        if (tweet.retweeted_status) {
+        }
         else {
             postToWebhook(tweetUrl, tweet)
                 .then(console.dir)
@@ -37,19 +38,22 @@ T.get('users/lookup', { screen_name: Config.twitter.handles.join(',') }, functio
 });
 function postToWebhook(tweetUrl, tweet) {
     return new Promise(function (resolve, reject) {
-        axios_1.default.post(Config.twitter.webhook, {
-            embeds: [{
-                    'color': 4886754,
-                    'author': {
-                        'name': tweet.user.name + " (@" + tweet.user.screen_name + ")",
-                        'url': tweetUrl,
-                        'icon_url': tweet.user.profile_image_url
+        axios_1.default
+            .post(Config.twitter.webhook, {
+            embeds: [
+                {
+                    color: 4886754,
+                    author: {
+                        name: tweet.user.name + " (@" + tweet.user.screen_name + ")",
+                        url: tweetUrl,
+                        icon_url: tweet.user.profile_image_url
                     },
                     description: tweet.text
-                }]
+                }
+            ]
         })
             .then(function () {
-            resolve('new tweet, sent message. ' + tweet.text);
+            resolve("new tweet, sent message. " + tweet.text);
         })
             .catch(reject);
     });

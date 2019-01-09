@@ -4,7 +4,7 @@
 
 import * as path from "path";
 import * as Config from "../../config.js";
-import { Log } from "../logging";
+import { Logger } from "../logging";
 
 import * as Twit from "twit";
 import axios from "axios";
@@ -22,12 +22,12 @@ T.get(
   (err, data) => {
     if (err) throw new Error(err);
 
-    Log.log(`gettings ids for ${Config.twitter.handles.join(", ")}`);
+    Logger.log(`gettings ids for ${Config.twitter.handles.join(", ")}`);
     const ids = data.map(curr => {
       return curr.id;
     });
 
-    Log.log(`got ids: ${ids}`);
+    Logger.log(`got ids: ${ids}`);
     const stream = T.stream("statuses/filter", { follow: ids.join(",") });
 
     stream.on("tweet", tweet => {
@@ -40,7 +40,7 @@ T.get(
         tweet.id_str
       }`;
 
-      Log.log(`got tweet -- @${tweet.user.screen_name}: ${tweet.text}`);
+      Logger.log(`got tweet -- @${tweet.user.screen_name}: ${tweet.text}`);
 
       if (tweet.retweeted_status) {
       } else {
