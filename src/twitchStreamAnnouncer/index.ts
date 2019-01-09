@@ -6,6 +6,12 @@ import { StreamsData, StreamsResponseData } from "./twitchInterfaces";
 
 import { TwitchOnlineTracker } from "TwitchOnlineTracker";
 import axios from "axios";
+import * as Keyv from "keyv";
+
+const mappedUsers = new Keyv("sqlite://streamtracker.sqlite", {
+  namespace: "streamtracker"
+});
+mappedUsers.on("error", Logger.error);
 
 import { Client, User, Message } from "discord.js";
 const discord = new Client();
@@ -17,8 +23,6 @@ const tracker = new TwitchOnlineTracker({
   pollInterval: 5
 });
 tracker.on("error", e => Logger.error(e.message));
-
-const mappedUsers = new Map();
 
 discord.on("ready", () => {
   Logger.log(`Logged in as ${discord.user.tag}`);
@@ -47,41 +51,50 @@ discord.on("message", message => {
   }
 });
 
-function track(message: Message, twitch: string) {
-  if (
-    mappedUsers.has(twitch) &&
-    mappedUsers.get(twitch).id === message.author.id
-  ) {
-    mappedUsers.delete(twitch);
-    tracker.untrack([twitch]);
+async function track(message: Message, twitch: string) {
+  try {
+    const mappedUser = await mappedUsers.get(twitch);
+    if (mappedUser && mappedUser.id === message.author.id) {
+      mappedUsers.delete(twitch);
+      tracker.untrack([twitch]);
+    }
+    mappedUsers.set(twitch, message.author);
+    tracker.track([twitch]);
+    Logger.log(`[tracker] Tracking user ${message.author.tag} at ${twitch}`);
+  } catch (e) {
+    Logger.error(e);
   }
-  mappedUsers.set(twitch, message.author);
-  tracker.track([twitch]);
-  Logger.log(`[tracker] Tracking user ${message.author.tag} at ${twitch}`);
 }
 
-function untrack(message: Message, twitch: string) {
-  if (
-    mappedUsers.has(twitch) &&
-    mappedUsers.get(twitch).id === message.author.id
-  ) {
-    mappedUsers.delete(twitch);
-    tracker.untrack([twitch]);
+async function untrack(message: Message, twitch: string) {
+  try {
+    const mappedUser = await mappedUsers.get(twitch);
+    if (mappedUser && mappedUser.id === message.author.id) {
+      mappedUsers.delete(twitch);
+      tracker.untrack([twitch]);
+    }
+    Logger.log(`[tracker] Stop tracking user ${message.author.tag}`);
+  } catch (e) {
+    Logger.error(e);
   }
-  Logger.log(`[tracker] Stop tracking user ${message.author.tag}`);
 }
 
-tracker.on("live", (stream: StreamsData) => {
-  const user = mappedUsers.get(stream.user_name.toLowerCase());
+tracker.on("live", async (stream: StreamsData) => {
+  try {
+    const user = await mappedUsers.get(stream.user_name);
+    console.log(user);
 
-  let shout = `${stream.user_name} just went live! ${
-    stream.title
-  } at https://twitch.tv/${stream.user_name}.`;
-  if (user) {
-    shout = formatAnnouncementText(user, stream);
+    let shout = `${stream.user_name} just went live! ${
+      stream.title
+    } at https://twitch.tv/${stream.user_name}.`;
+    if (user) {
+      shout = formatAnnouncementText(user, stream);
+    }
+
+    announceLiveToChannel(shout);
+  } catch (e) {
+    Logger.error(e);
   }
-
-  announceLiveToChannel(shout);
 });
 
 function formatAnnouncementText(user: User, stream: StreamsData): string {
@@ -96,7 +109,9 @@ function formatAnnouncementText(user: User, stream: StreamsData): string {
  */
 function announceLiveToChannel(announcementText: string): void {
   Logger.log(announcementText);
-  axios.post(Config.streamUpdates.webhook, {
-    content: announcementText
-  });
+  axios
+    .post(Config.streamUpdates.webhook, {
+      content: announcementText
+    })
+    .catch(Logger.error);
 }
