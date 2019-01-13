@@ -41,7 +41,8 @@ var logging_1 = require("../logging");
 var TwitchOnlineTracker_1 = require("TwitchOnlineTracker");
 var axios_1 = require("axios");
 var Keyv = require("keyv");
-var mappedUsers = new Keyv("sqlite://streamtracker.sqlite", {
+var databaseFilename = Config.streamUpdates.databaseFilename || "streamUpdates.sqlite";
+var mappedUsers = new Keyv("sqlite://" + databaseFilename, {
     namespace: "streamtracker"
 });
 mappedUsers.on("error", logging_1.Logger.error);
@@ -50,14 +51,12 @@ var discord = new discord_js_1.Client();
 discord.login(Config.discord.token).catch(logging_1.Logger.error);
 var tracker = new TwitchOnlineTracker_1.TwitchOnlineTracker({
     client_id: Config.twitch.clientid,
-    debug: true,
-    pollInterval: 5
+    debug: process.env.DEBUG || false,
+    pollInterval: Config.streamUpdates.pollInterval || 30 // Default: 30
 });
 tracker.on("error", function (e) { return logging_1.Logger.error(e.message); });
 discord.on("ready", function () {
     logging_1.Logger.log("Logged in as " + discord.user.tag);
-    // @DEBUG
-    // tracker.track(["gamesdonequick"]);
     tracker.start();
 });
 discord.on("error", logging_1.Logger.error);
@@ -101,10 +100,11 @@ function track(message, twitch) {
             switch (_a.label) {
                 case 0:
                     _a.trys.push([0, 5, , 6]);
-                    return [4 /*yield*/, mappedUsers.get(twitch)];
+                    return [4 /*yield*/, mappedUsers.get(message.author.id)];
                 case 1:
                     mappedUser = _a.sent();
-                    if (!(mappedUser && mappedUser.id === message.author.id)) return [3 /*break*/, 3];
+                    if (!(mappedUser && mappedUser.user.id === message.author.id)) return [3 /*break*/, 3];
+                    console.log('delete the user, do some checks to make sure we only untrack if we NEED to');
                     return [4 /*yield*/, mappedUsers.delete(twitch)];
                 case 2:
                     _a.sent();
@@ -115,7 +115,10 @@ function track(message, twitch) {
                         id: message.author.id,
                         tag: message.author.tag
                     });
-                    return [4 /*yield*/, mappedUsers.set(twitch, simplifiedUser)];
+                    return [4 /*yield*/, mappedUsers.set(message.author.id, {
+                            user: simplifiedUser,
+                            twitch: twitch
+                        })];
                 case 4:
                     _a.sent();
                     tracker.track([twitch]);

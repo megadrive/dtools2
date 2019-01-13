@@ -21,10 +21,12 @@ module.exports = {
     "access": {
       "token": "",
       "secret": ""
-    },
-    "webhook": "discord channel webhook url"
+    }
   },
   "streamUpdates": {
+    "webhook": "discord channel webhook url"
+  }
+  "sendTweetsToChannel": {
     "webhook": "discord channel webhook url"
   }
 }

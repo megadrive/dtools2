@@ -39,7 +39,7 @@ T.get("users/lookup", { screen_name: Config.twitter.handles.join(",") }, functio
 function postToWebhook(tweetUrl, tweet) {
     return new Promise(function (resolve, reject) {
         axios_1.default
-            .post(Config.twitter.webhook, {
+            .post(Config.sendTweetsToChannel.webhook, {
             embeds: [
                 {
                     color: 4886754,

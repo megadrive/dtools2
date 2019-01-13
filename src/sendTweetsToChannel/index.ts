@@ -55,7 +55,7 @@ T.get(
 function postToWebhook(tweetUrl, tweet) {
   return new Promise((resolve, reject) => {
     axios
-      .post(Config.twitter.webhook, {
+      .post(Config.sendTweetsToChannel.webhook, {
         embeds: [
           {
             color: 4886754,

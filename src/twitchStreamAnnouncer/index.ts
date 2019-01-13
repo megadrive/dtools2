@@ -8,7 +8,9 @@ import { TwitchOnlineTracker } from "TwitchOnlineTracker";
 import axios from "axios";
 import * as Keyv from "keyv";
 
-const mappedUsers = new Keyv("sqlite://streamtracker.sqlite", {
+const databaseFilename =
+  Config.streamUpdates.databaseFilename || "streamUpdates.sqlite";
+const mappedUsers = new Keyv(`sqlite://${databaseFilename}`, {
   namespace: "streamtracker"
 });
 mappedUsers.on("error", Logger.error);
@@ -19,16 +21,13 @@ discord.login(Config.discord.token).catch(Logger.error);
 
 const tracker = new TwitchOnlineTracker({
   client_id: Config.twitch.clientid,
-  debug: true,
-  pollInterval: 5
+  debug: process.env.DEBUG || false,
+  pollInterval: Config.streamUpdates.pollInterval || 30 // Default: 30
 });
 tracker.on("error", e => Logger.error(e.message));
 
 discord.on("ready", () => {
   Logger.log(`Logged in as ${discord.user.tag}`);
-
-  // @DEBUG
-  // tracker.track(["gamesdonequick"]);
 
   tracker.start();
 });
@@ -57,8 +56,11 @@ discord.on("message", async message => {
 
 async function track(message: Message, twitch: string) {
   try {
-    const mappedUser = await mappedUsers.get(twitch);
-    if (mappedUser && mappedUser.id === message.author.id) {
+    const mappedUser = await mappedUsers.get(message.author.id);
+    if (mappedUser && mappedUser.user.id === message.author.id) {
+      console.log(
+        "delete the user, do some checks to make sure we only untrack if we NEED to"
+      );
       await mappedUsers.delete(twitch);
       tracker.untrack([twitch]);
     }
@@ -67,7 +69,10 @@ async function track(message: Message, twitch: string) {
       id: message.author.id,
       tag: message.author.tag
     });
-    await mappedUsers.set(twitch, simplifiedUser);
+    await mappedUsers.set(message.author.id, {
+      user: simplifiedUser,
+      twitch: twitch
+    });
     tracker.track([twitch]);
     Logger.log(`[tracker] Tracking user ${message.author.tag} at ${twitch}`);
   } catch (e) {
