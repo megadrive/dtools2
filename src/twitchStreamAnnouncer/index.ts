@@ -6,14 +6,15 @@ import { StreamsData, StreamsResponseData } from "./twitchInterfaces";
 
 import { TwitchOnlineTracker } from "TwitchOnlineTracker";
 import axios from "axios";
-import * as Keyv from "keyv";
+import * as Datastore from "nedb-promise";
 
 const databaseFilename =
-  Config.streamUpdates.databaseFilename || "streamUpdates.sqlite";
-const mappedUsers = new Keyv(`sqlite://${databaseFilename}`, {
-  namespace: "streamtracker"
+  Config.streamUpdates.databaseFilename || "streamUpdates.db.json";
+Logger.log(`Loading db @ ${databaseFilename}`);
+const db = new Datastore({
+  filename: databaseFilename,
+  autoload: true
 });
-mappedUsers.on("error", Logger.error);
 
 import { Client, User, Message } from "discord.js";
 const discord = new Client();
@@ -30,11 +31,18 @@ discord.on("ready", () => {
   Logger.log(`Logged in as ${discord.user.tag}`);
 
   tracker.start();
+
+  try {
+    trackFromDatabase(tracker);
+  } catch (err) {
+    throw new Error(err);
+  }
 });
 discord.on("error", Logger.error);
 
 discord.on("message", async message => {
   if (message.author.bot) return;
+  if (message.guild === null) return;
 
   if (message.content.startsWith("!")) {
     const args = message.content.slice(1).split(" ");
@@ -46,7 +54,7 @@ discord.on("message", async message => {
       }
 
       if (args[0] === "untrack") {
-        await untrack(message, twitch);
+        await untrack(message);
       }
     } catch (e) {
       Logger.error(e);
@@ -54,25 +62,37 @@ discord.on("message", async message => {
   }
 });
 
+async function trackFromDatabase(tracker) {
+  const allUsers = await db.find({});
+  const allTwitch = allUsers.map(user => user.twitch);
+  tracker.track(allTwitch);
+
+  Logger.log(`[tracker] Started tracking ${allTwitch.length} twitch users.`);
+}
+
 async function track(message: Message, twitch: string) {
   try {
-    const mappedUser = await mappedUsers.get(message.author.id);
-    if (mappedUser && mappedUser.user.id === message.author.id) {
-      console.log(
-        "delete the user, do some checks to make sure we only untrack if we NEED to"
-      );
-      await mappedUsers.delete(twitch);
-      tracker.untrack([twitch]);
-    }
-
     const simplifiedUser = new User(discord, {
       id: message.author.id,
       tag: message.author.tag
     });
-    await mappedUsers.set(message.author.id, {
-      user: simplifiedUser,
-      twitch: twitch
-    });
+
+    // Update if exists, or insert otherwise
+    await db.update(
+      {
+        guildid: message.guild.id,
+        user: simplifiedUser
+      },
+      {
+        guildid: message.guild.id,
+        user: simplifiedUser,
+        twitch: twitch
+      },
+      {
+        upsert: true
+      }
+    );
+
     tracker.track([twitch]);
     Logger.log(`[tracker] Tracking user ${message.author.tag} at ${twitch}`);
   } catch (e) {
@@ -80,14 +100,41 @@ async function track(message: Message, twitch: string) {
   }
 }
 
-async function untrack(message: Message, twitch: string) {
+async function untrack(message: Message) {
   try {
-    const mappedUser = await mappedUsers.get(twitch);
-    if (mappedUser && mappedUser.id === message.author.id) {
-      await mappedUsers.delete(twitch);
+    const findQuery = {
+      guildid: message.guild.id,
+      "user.id": message.author.id
+    };
+    const user = await db.findOne(findQuery);
+    const twitch = user.twitch;
+    const twitchCount = await db.find({
+      twitch: twitch
+    });
+    const simplifiedUser = new User(discord, {
+      id: message.author.id,
+      tag: message.author.tag
+    });
+    const numRemoved = await db.remove(findQuery);
+
+    if (twitchCount.length === 1) {
+      // only remove tracking if its the last stream we are tracking
       tracker.untrack([twitch]);
+      Logger.log(
+        `[tracker] Untracked ${twitch} since it was the last user using this Twitch.`
+      );
+    } else {
+      Logger.log(
+        `[tracker] Not untracking ${twitch} since there are more users using this Twitch.`
+      );
     }
-    Logger.log(`[tracker] Stop tracking user ${message.author.tag}`);
+
+    Logger.log(
+      `[tracker] Stop tracking user ${
+        message.author.tag
+      } (${numRemoved} records removed)`
+    );
+    message.reply(`stopped tracking your Twitch stream status.`);
   } catch (e) {
     Logger.error(e);
   }
@@ -95,16 +142,20 @@ async function untrack(message: Message, twitch: string) {
 
 tracker.on("live", async (stream: StreamsData) => {
   try {
-    const user = await mappedUsers.get(stream.user_name.toLowerCase());
+    const trackedUsers = await db.find({
+      twitch: stream.user_name.toLowerCase()
+    });
 
-    let shout = `${stream.user_name} just went live! ${
-      stream.title
-    } at https://twitch.tv/${stream.user_name}.`;
-    if (user) {
-      shout = formatAnnouncementText(user, stream);
-    }
+    trackedUsers.forEach(trackedUser => {
+      let shout = `${stream.user_name} just went live! ${
+        stream.title
+      } at https://twitch.tv/${stream.user_name}.`;
+      if (trackedUser.user) {
+        shout = formatAnnouncementText(trackedUser.user, stream);
+      }
 
-    announceLiveToChannel(shout);
+      announceLiveToChannel(shout);
+    });
   } catch (e) {
     Logger.error(e);
   }
