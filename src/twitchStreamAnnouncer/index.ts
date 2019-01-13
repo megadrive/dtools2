@@ -94,6 +94,7 @@ async function track(message: Message, twitch: string) {
     );
 
     tracker.track([twitch]);
+    message.reply(`now tracking your Twitch stream at ${twitch}.`);
     Logger.log(`[tracker] Tracking user ${message.author.tag} at ${twitch}`);
   } catch (e) {
     Logger.error(e);

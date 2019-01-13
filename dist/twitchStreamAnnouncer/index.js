@@ -144,6 +144,7 @@ function track(message, twitch) {
                     // Update if exists, or insert otherwise
                     _a.sent();
                     tracker.track([twitch]);
+                    message.reply("now tracking your Twitch stream at " + twitch + ".");
                     logging_1.Logger.log("[tracker] Tracking user " + message.author.tag + " at " + twitch);
                     return [3 /*break*/, 3];
                 case 2:
