@@ -4,7 +4,7 @@ import * as Config from "../../config.js";
 import { Logger } from "../logging";
 import { StreamsData, StreamsResponseData } from "./twitchInterfaces";
 
-import { TwitchOnlineTracker } from "TwitchOnlineTracker";
+import { TwitchOnlineTracker } from "twitchonlinetracker";
 import axios from "axios";
 import * as Datastore from "nedb-promise";
 

@@ -38,7 +38,7 @@ var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 var Config = require("../../config.js");
 var logging_1 = require("../logging");
-var TwitchOnlineTracker_1 = require("TwitchOnlineTracker");
+var twitchonlinetracker_1 = require("twitchonlinetracker");
 var axios_1 = require("axios");
 var Datastore = require("nedb-promise");
 var databaseFilename = Config.streamUpdates.databaseFilename || "streamUpdates.db.json";
@@ -50,7 +50,7 @@ var db = new Datastore({
 var discord_js_1 = require("discord.js");
 var discord = new discord_js_1.Client();
 discord.login(Config.discord.token).catch(logging_1.Logger.error);
-var tracker = new TwitchOnlineTracker_1.TwitchOnlineTracker({
+var tracker = new twitchonlinetracker_1.TwitchOnlineTracker({
     client_id: Config.twitch.clientid,
     debug: process.env.DEBUG || false,
     pollInterval: Config.streamUpdates.pollInterval || 30 // Default: 30
