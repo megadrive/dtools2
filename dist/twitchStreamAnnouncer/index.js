@@ -132,7 +132,7 @@ function track(message, twitch) {
                     // Update if exists, or insert otherwise
                     return [4 /*yield*/, db.update({
                             guildid: message.guild.id,
-                            user: simplifiedUser
+                            'user.id': simplifiedUser.id
                         }, {
                             guildid: message.guild.id,
                             user: simplifiedUser,

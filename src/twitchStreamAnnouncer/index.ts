@@ -81,7 +81,7 @@ async function track(message: Message, twitch: string) {
     await db.update(
       {
         guildid: message.guild.id,
-        user: simplifiedUser
+        "user.id": simplifiedUser.id
       },
       {
         guildid: message.guild.id,
