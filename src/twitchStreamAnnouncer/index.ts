@@ -94,20 +94,17 @@ async function track(message: Message, twitch: string) {
     });
 
     // Update if exists, or insert otherwise
-    await db.update(
-      {
-        guildid: message.guild.id,
-        "user.id": simplifiedUser.id
-      },
-      {
-        guildid: message.guild.id,
-        user: simplifiedUser,
-        twitch: twitch
-      },
-      {
-        upsert: true
-      }
-    );
+    const findQuery = {
+      guildid: message.guild.id,
+      "user.id": simplifiedUser.id
+    };
+    const dbUser = await db.findOne(findQuery);
+    if (dbUser) {
+      dbUser.twitch = twitch;
+      db.update(findQuery, dbUser);
+    } else {
+      db.insert(Object.assign(findQuery, { twitch: twitch }));
+    }
 
     tracker.track([twitch]);
     message.reply(`now tracking your Twitch stream at ${twitch}.`);

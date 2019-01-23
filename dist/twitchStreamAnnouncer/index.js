@@ -48,7 +48,7 @@ var db = new Datastore({
     autoload: true
 });
 var gameInfoCacheDb = new Datastore({
-    filename: 'gameInfoCache.db.json',
+    filename: "gameInfoCache.db.json",
     autoload: true
 });
 var discord_js_1 = require("discord.js");
@@ -99,8 +99,8 @@ discord.on("message", function (message) { return __awaiter(_this, void 0, void 
                 _a.sent();
                 _a.label = 5;
             case 5:
-                if (args[0] === 'debug') {
-                    ['megadriving', 'twitchpresents', 'bajostream'].forEach(function (t) { return __awaiter(_this, void 0, void 0, function () {
+                if (args[0] === "debug") {
+                    ["megadriving", "twitchpresents", "bajostream"].forEach(function (t) { return __awaiter(_this, void 0, void 0, function () {
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0: return [4 /*yield*/, track(message, t)];
@@ -114,7 +114,7 @@ discord.on("message", function (message) { return __awaiter(_this, void 0, void 
                 return [3 /*break*/, 7];
             case 6:
                 e_1 = _a.sent();
-                logging_1.Logger.error('MessageError', e_1);
+                logging_1.Logger.error("MessageError", e_1);
                 return [3 /*break*/, 7];
             case 7: return [2 /*return*/];
         }
@@ -138,7 +138,7 @@ function trackFromDatabase(tracker) {
 }
 function track(message, twitch) {
     return __awaiter(this, void 0, void 0, function () {
-        var simplifiedUser, e_2;
+        var simplifiedUser, findQuery, dbUser, e_2;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -147,20 +147,20 @@ function track(message, twitch) {
                         id: message.author.id,
                         tag: message.author.tag
                     });
-                    // Update if exists, or insert otherwise
-                    return [4 /*yield*/, db.update({
-                            guildid: message.guild.id,
-                            "user.id": simplifiedUser.id
-                        }, {
-                            guildid: message.guild.id,
-                            user: simplifiedUser,
-                            twitch: twitch
-                        }, {
-                            upsert: true
-                        })];
+                    findQuery = {
+                        guildid: message.guild.id,
+                        "user.id": simplifiedUser.id
+                    };
+                    return [4 /*yield*/, db.findOne(findQuery)];
                 case 1:
-                    // Update if exists, or insert otherwise
-                    _a.sent();
+                    dbUser = _a.sent();
+                    if (dbUser) {
+                        dbUser.twitch = twitch;
+                        db.update(findQuery, dbUser);
+                    }
+                    else {
+                        db.insert(Object.assign(findQuery, { twitch: twitch }));
+                    }
                     tracker.track([twitch]);
                     message.reply("now tracking your Twitch stream at " + twitch + ".");
                     logging_1.Logger.log("[tracker] Tracking user " + message.author.tag + " at " + twitch);
@@ -263,9 +263,7 @@ function getGameInfo(gameId) {
                     _a.label = 1;
                 case 1:
                     _a.trys.push([1, 7, , 8]);
-                    return [4 /*yield*/, gameInfoCacheDb.findOne({ game_id: gameId })
-                        // not cached? get from api and cache
-                    ];
+                    return [4 /*yield*/, gameInfoCacheDb.findOne({ game_id: gameId })];
                 case 2:
                     gameInfo = _a.sent();
                     if (!(gameInfo === null)) return [3 /*break*/, 6];
@@ -287,7 +285,7 @@ function getGameInfo(gameId) {
                 case 6: return [2 /*return*/, gameInfo];
                 case 7:
                     e_5 = _a.sent();
-                    logging_1.Logger.error('GameInfoError', e_5);
+                    logging_1.Logger.error("GameInfoError", e_5);
                     return [3 /*break*/, 8];
                 case 8: return [2 /*return*/];
             }
@@ -302,11 +300,11 @@ function formatAnnouncement(user, stream, gameInfo) {
         .setTimestamp(new Date(stream.started_at))
         .addField("Title", stream.title, true);
     if (gameInfo) {
-        richEmbed.addField('Now Playing', gameInfo.name);
-        richEmbed.setThumbnail(gameInfo.box_art_url.replace('{width}', '285').replace('{height}', '380'));
+        richEmbed.addField("Now Playing", gameInfo.name);
+        richEmbed.setThumbnail(gameInfo.box_art_url.replace("{width}", "285").replace("{height}", "380"));
     }
     var announceOptions = {
-        content: 'Stream Update',
+        content: "Stream Update",
         embed: richEmbed
     };
     return announceOptions;
