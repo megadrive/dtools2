@@ -47,6 +47,10 @@ var db = new Datastore({
     filename: databaseFilename,
     autoload: true
 });
+var gameInfoCacheDb = new Datastore({
+    filename: 'gameInfoCache.db.json',
+    autoload: true
+});
 var discord_js_1 = require("discord.js");
 var discord = new discord_js_1.Client();
 discord.login(Config.discord.token).catch(logging_1.Logger.error);
@@ -69,6 +73,7 @@ discord.on("ready", function () {
 discord.on("error", logging_1.Logger.error);
 discord.on("message", function (message) { return __awaiter(_this, void 0, void 0, function () {
     var args, twitch, e_1;
+    var _this = this;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -93,10 +98,23 @@ discord.on("message", function (message) { return __awaiter(_this, void 0, void 
             case 4:
                 _a.sent();
                 _a.label = 5;
-            case 5: return [3 /*break*/, 7];
+            case 5:
+                if (args[0] === 'debug') {
+                    ['megadriving', 'twitchpresents', 'bajostream'].forEach(function (t) { return __awaiter(_this, void 0, void 0, function () {
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0: return [4 /*yield*/, track(message, t)];
+                                case 1:
+                                    _a.sent();
+                                    return [2 /*return*/];
+                            }
+                        });
+                    }); });
+                }
+                return [3 /*break*/, 7];
             case 6:
                 e_1 = _a.sent();
-                logging_1.Logger.error(e_1);
+                logging_1.Logger.error('MessageError', e_1);
                 return [3 /*break*/, 7];
             case 7: return [2 /*return*/];
         }
@@ -132,7 +150,7 @@ function track(message, twitch) {
                     // Update if exists, or insert otherwise
                     return [4 /*yield*/, db.update({
                             guildid: message.guild.id,
-                            'user.id': simplifiedUser.id
+                            "user.id": simplifiedUser.id
                         }, {
                             guildid: message.guild.id,
                             user: simplifiedUser,
@@ -204,44 +222,110 @@ function untrack(message) {
     });
 }
 tracker.on("live", function (stream) { return __awaiter(_this, void 0, void 0, function () {
-    var trackedUsers, e_4;
+    var trackedUsers, gameInfo_1, e_4;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
-                _a.trys.push([0, 2, , 3]);
+                _a.trys.push([0, 3, , 4]);
                 return [4 /*yield*/, db.find({
                         twitch: stream.user_name.toLowerCase()
                     })];
             case 1:
                 trackedUsers = _a.sent();
+                return [4 /*yield*/, getGameInfo(stream.game_id)];
+            case 2:
+                gameInfo_1 = _a.sent();
                 trackedUsers.forEach(function (trackedUser) {
-                    var shout = stream.user_name + " just went live! " + stream.title + " at https://twitch.tv/" + stream.user_name + ".";
+                    var shout = {
+                        content: stream.user_name + " just went live! " + stream.title + " at https://twitch.tv/" + stream.user_name + "."
+                    };
                     if (trackedUser.user) {
-                        shout = formatAnnouncementText(trackedUser.user, stream);
+                        shout = formatAnnouncement(trackedUser.user, stream, gameInfo_1);
                     }
                     announceLiveToChannel(shout);
                 });
-                return [3 /*break*/, 3];
-            case 2:
+                return [3 /*break*/, 4];
+            case 3:
                 e_4 = _a.sent();
-                logging_1.Logger.error(e_4);
-                return [3 /*break*/, 3];
-            case 3: return [2 /*return*/];
+                logging_1.Logger.error("LiveError", e_4);
+                return [3 /*break*/, 4];
+            case 4: return [2 /*return*/];
         }
     });
 }); });
-function formatAnnouncementText(user, stream) {
-    return "<@" + user.id + "> just went live! " + stream.title + " at https://twitch.tv/" + stream.user_name + ".";
+function getGameInfo(gameId) {
+    return __awaiter(this, void 0, void 0, function () {
+        var gameInfo, twitchData, e_5;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    logging_1.Logger.log("getting game info for id: " + gameId);
+                    _a.label = 1;
+                case 1:
+                    _a.trys.push([1, 7, , 8]);
+                    return [4 /*yield*/, gameInfoCacheDb.findOne({ game_id: gameId })
+                        // not cached? get from api and cache
+                    ];
+                case 2:
+                    gameInfo = _a.sent();
+                    if (!(gameInfo === null)) return [3 /*break*/, 6];
+                    logging_1.Logger.log("no cached game info, polling twitch for id: " + gameId);
+                    return [4 /*yield*/, tracker.api("games?id=" + gameId)];
+                case 3:
+                    twitchData = _a.sent();
+                    if (!twitchData.data) return [3 /*break*/, 5];
+                    logging_1.Logger.log("cached data: " + twitchData.data[0].name);
+                    return [4 /*yield*/, gameInfoCacheDb.insert(twitchData.data[0])];
+                case 4:
+                    _a.sent();
+                    gameInfo = twitchData.data[0];
+                    return [3 /*break*/, 6];
+                case 5:
+                    gameInfo = null;
+                    logging_1.Logger.warn("twitch said no game with that id exists?");
+                    _a.label = 6;
+                case 6: return [2 /*return*/, gameInfo];
+                case 7:
+                    e_5 = _a.sent();
+                    logging_1.Logger.error('GameInfoError', e_5);
+                    return [3 /*break*/, 8];
+                case 8: return [2 /*return*/];
+            }
+        });
+    });
+}
+function formatAnnouncement(user, stream, gameInfo) {
+    var richEmbed = new discord_js_1.RichEmbed()
+        .setTitle("https://twitch.tv/" + stream.user_name)
+        .setURL("https://twitch.tv/stream.user_name")
+        .setColor(9442302)
+        .setTimestamp(new Date(stream.started_at))
+        .addField("Title", stream.title, true);
+    if (gameInfo) {
+        richEmbed.addField('Now Playing', gameInfo.name);
+        richEmbed.setThumbnail(gameInfo.box_art_url.replace('{width}', '285').replace('{height}', '380'));
+    }
+    var announceOptions = {
+        content: 'Stream Update',
+        embed: richEmbed
+    };
+    return announceOptions;
 }
 /**
  * Announce that the Twitch channel is live to Discord.
  * @param {string} announcementText Announcement text to use, preformatted.
  */
-function announceLiveToChannel(announcementText) {
-    logging_1.Logger.log(announcementText);
+function announceLiveToChannel(options) {
+    if (options.content)
+        logging_1.Logger.log(options.content);
+    if (options.embed)
+        logging_1.Logger.log("Sending embed: " + options.embed.fields[0]);
     axios_1.default
         .post(Config.streamUpdates.webhook, {
-        content: announcementText
+        content: options.content,
+        embeds: [options.embed]
     })
-        .catch(logging_1.Logger.error);
+        .catch(function (e) {
+        console.log(e.response);
+    });
 }

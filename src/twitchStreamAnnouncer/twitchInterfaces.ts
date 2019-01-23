@@ -1,3 +1,31 @@
+import { RichEmbed } from "discord.js";
+
+export interface AnnounceOptions {
+  /**
+   * content string
+   */
+  content: any;
+  /**
+   * Discord RichEmbed
+   */
+  embed?: RichEmbed;
+}
+
+export interface GameInfo {
+  /**
+   * Template URL for the game’s box art.
+   */
+  box_art_url: string;
+  /**
+   * Game ID.
+   */
+  id: string;
+  /**
+   * Game name.
+   */
+  name: string;
+}
+
 export interface StreamsData {
   /**
    * Array of community IDs.

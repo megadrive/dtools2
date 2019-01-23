@@ -2,7 +2,12 @@
 
 import * as Config from "../../config.js";
 import { Logger } from "../logging";
-import { StreamsData, StreamsResponseData } from "./twitchInterfaces";
+import {
+  StreamsData,
+  StreamsResponseData,
+  AnnounceOptions,
+  GameInfo
+} from "./twitchInterfaces";
 
 import { TwitchOnlineTracker } from "twitchonlinetracker";
 import axios from "axios";
@@ -16,7 +21,12 @@ const db = new Datastore({
   autoload: true
 });
 
-import { Client, User, Message } from "discord.js";
+const gameInfoCacheDb = new Datastore({
+  filename: "gameInfoCache.db.json",
+  autoload: true
+});
+
+import { Client, User, Message, RichEmbed } from "discord.js";
 const discord = new Client();
 discord.login(Config.discord.token).catch(Logger.error);
 
@@ -56,8 +66,14 @@ discord.on("message", async message => {
       if (args[0] === "untrack") {
         await untrack(message);
       }
+
+      if (args[0] === "debug") {
+        ["megadriving", "twitchpresents", "bajostream"].forEach(async t => {
+          await track(message, t);
+        });
+      }
     } catch (e) {
-      Logger.error(e);
+      Logger.error("MessageError", e);
     }
   }
 });
@@ -147,36 +163,91 @@ tracker.on("live", async (stream: StreamsData) => {
       twitch: stream.user_name.toLowerCase()
     });
 
+    const gameInfo = await getGameInfo(stream.game_id);
+
     trackedUsers.forEach(trackedUser => {
-      let shout = `${stream.user_name} just went live! ${
-        stream.title
-      } at https://twitch.tv/${stream.user_name}.`;
+      let shout: AnnounceOptions = {
+        content: `${stream.user_name} just went live! ${
+          stream.title
+        } at https://twitch.tv/${stream.user_name}.`
+      };
       if (trackedUser.user) {
-        shout = formatAnnouncementText(trackedUser.user, stream);
+        shout = formatAnnouncement(trackedUser.user, stream, gameInfo);
       }
 
       announceLiveToChannel(shout);
     });
   } catch (e) {
-    Logger.error(e);
+    Logger.error("LiveError", e);
   }
 });
 
-function formatAnnouncementText(user: User, stream: StreamsData): string {
-  return `<@${user.id}> just went live! ${stream.title} at https://twitch.tv/${
-    stream.user_name
-  }.`;
+async function getGameInfo(gameId) {
+  Logger.log(`getting game info for id: ${gameId}`);
+  try {
+    let gameInfo = await gameInfoCacheDb.findOne({ game_id: gameId });
+
+    // not cached? get from api and cache
+    if (gameInfo === null) {
+      Logger.log(`no cached game info, polling twitch for id: ${gameId}`);
+      const twitchData = await tracker.api(`games?id=${gameId}`);
+
+      if (twitchData.data) {
+        Logger.log(`cached data: ${twitchData.data[0].name}`);
+        await gameInfoCacheDb.insert(twitchData.data[0]);
+        gameInfo = twitchData.data[0];
+      } else {
+        gameInfo = null;
+        Logger.warn(`twitch said no game with that id exists?`);
+      }
+    }
+
+    return gameInfo;
+  } catch (e) {
+    Logger.error("GameInfoError", e);
+  }
+}
+
+function formatAnnouncement(
+  user: User,
+  stream: StreamsData,
+  gameInfo: GameInfo
+): AnnounceOptions {
+  const richEmbed = new RichEmbed()
+    .setTitle(`https://twitch.tv/${stream.user_name}`)
+    .setURL("https://twitch.tv/stream.user_name")
+    .setColor(9442302)
+    .setTimestamp(new Date(stream.started_at))
+    .addField("Title", stream.title, true);
+
+  if (gameInfo) {
+    richEmbed.addField("Now Playing", gameInfo.name);
+    richEmbed.setThumbnail(
+      gameInfo.box_art_url.replace("{width}", "285").replace("{height}", "380")
+    );
+  }
+
+  const announceOptions: AnnounceOptions = {
+    content: "Stream Update",
+    embed: richEmbed
+  };
+
+  return announceOptions;
 }
 
 /**
  * Announce that the Twitch channel is live to Discord.
  * @param {string} announcementText Announcement text to use, preformatted.
  */
-function announceLiveToChannel(announcementText: string): void {
-  Logger.log(announcementText);
+function announceLiveToChannel(options: AnnounceOptions): void {
+  if (options.content) Logger.log(options.content);
+  if (options.embed) Logger.log(`Sending embed: ${options.embed.fields[0]}`);
   axios
     .post(Config.streamUpdates.webhook, {
-      content: announcementText
+      content: options.content,
+      embeds: [options.embed]
     })
-    .catch(Logger.error);
+    .catch(e => {
+      console.log(e.response);
+    });
 }
